@@ -1,19 +1,15 @@
-# Используйте официальный образ Python как базовый
-FROM python:3.11.1
+# Используйте официальный образ Python как родительский образ
+FROM python:3.8
 
 # Установите рабочий каталог в контейнере
-ENV APP_HOME /app
-WORKDIR $APP_HOME
+WORKDIR /app
 
-# Скопируйте файл зависимостей и установите зависимости
-COPY ./requirements.txt .
-RUN pip install -r requirements.txt
+# Копируйте файлы зависимостей и установите их
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Скопируйте локальный код в контейнер
+# Копируйте остальную часть вашего кода приложения
 COPY . .
 
-# Дайте права на выполнение скрипту entrypoint.sh
-RUN chmod +x ./entrypoint.sh
-
-# Запустите скрипт при старте контейнера
-CMD ["./entrypoint.sh"]
+# Запустите сервер приложения
+CMD ["gunicorn", "--bind", "0.0.0.0:8001", "cookscorner.wsgi:application"]
