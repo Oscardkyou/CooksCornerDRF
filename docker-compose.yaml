@@ -1,7 +1,6 @@
 version: '3.9'
 
 services:
-
   db:
     image: postgres:latest
     restart: always
@@ -17,7 +16,7 @@ services:
 
   app:
     build: .
-    command: ./entrypoint.sh
+    command: ["./entrypoint.sh"]
     volumes:
       - .:/code
       - ./static:/app/static
