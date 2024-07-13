@@ -33,6 +33,9 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 ALLOWED_HOSTS = [
     '127.0.0.1',
     'localhost',
+    '0.0.0.0',
+    'localhost',
+    'cookscornerdrf-production.up.railway.app',
 ]
 
 # Application definition
@@ -54,6 +57,13 @@ INSTALLED_APPS = [
     'userprofile',
     'receipts'
 ]
+
+SWAGGER_SETTINGS = {'SECURITY_DEFINITIONS': {
+        'Basic': {
+            'type': 'basic'
+        }
+    },
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
