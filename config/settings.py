@@ -36,6 +36,7 @@ ALLOWED_HOSTS = [
     'http://159.89.48.104:8001/',
     '159.89.48.104',
     'http://marina-backender.org.kg/',
+    'marina-backender.org.kg',
 ]
 
 
