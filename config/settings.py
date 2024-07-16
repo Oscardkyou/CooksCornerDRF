@@ -33,7 +33,7 @@ DEBUG = config('DEBUG', cast=bool)
 ALLOWED_HOSTS = [
     '127.0.0.1',
     'localhost',
-    'pavel-backender.org.kg',
+    'http://159.89.48.104:8001/',
     '64.23.202.53'
 ]
 
