@@ -35,6 +35,7 @@ ALLOWED_HOSTS = [
     'localhost',
     'http://159.89.48.104:8001/',
     '159.89.48.104',
+    'http://marina-backender.org.kg/',
 ]
 
 
@@ -159,7 +160,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CSRF_TRUSTED_ORIGINS = ['https://pavel-backender.org.kg']
+CSRF_TRUSTED_ORIGINS = ['http://marina-backender.org.kg/']
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
