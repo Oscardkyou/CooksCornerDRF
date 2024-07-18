@@ -20,7 +20,6 @@ class LoginRequestSerializer(serializers.Serializer):
 class SignupRequestSerializer(LoginRequestSerializer):
     username = serializers.CharField()
     password_confirm = serializers.CharField()
-    url = serializers.URLField()
 
 
 class RefreshTokenSerializer(serializers.Serializer):
