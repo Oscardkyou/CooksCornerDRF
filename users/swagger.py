@@ -1,14 +1,17 @@
 from drf_yasg import openapi
 from rest_framework import serializers
 
+
 class ResendEmailSerializer(serializers.Serializer):
     url = serializers.URLField()
 
     class Meta:
         abstract = True
 
+
 class ForgotPasswordSerializer(ResendEmailSerializer):
     email = serializers.EmailField()
+
 
 class LoginRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -16,6 +19,7 @@ class LoginRequestSerializer(serializers.Serializer):
 
     class Meta:
         abstract = True
+
 
 class SignupRequestSerializer(LoginRequestSerializer):
     username = serializers.CharField()
@@ -28,8 +32,10 @@ class RefreshTokenSerializer(serializers.Serializer):
     class Meta:
         abstract = True
 
+
 class TokenResponseSerializer(RefreshTokenSerializer):
     access = serializers.CharField()
+
 
 class ForgotPasswordChangeSerializer(serializers.Serializer):
     new_password = serializers.CharField()
@@ -38,40 +44,46 @@ class ForgotPasswordChangeSerializer(serializers.Serializer):
     class Meta:
         abstract = True
 
+
 signup_swagger = {
-    'parameters': None,
-    'request_body': SignupRequestSerializer,
-    'response': TokenResponseSerializer
+    "parameters": None,
+    "request_body": SignupRequestSerializer,
+    "response": TokenResponseSerializer,
 }
 
 login_swagger = {
-    'parameters': None,
-    'request_body': LoginRequestSerializer,
-    'response': TokenResponseSerializer
+    "parameters": None,
+    "request_body": LoginRequestSerializer,
+    "response": TokenResponseSerializer,
 }
 
 resend_swagger = {
-    'parameters': None,
-    'request_body': ResendEmailSerializer,
-    'response': None
+    "parameters": None,
+    "request_body": ResendEmailSerializer,
+    "response": None,
 }
 
 logout_swagger = {
-    'parameters': None,
-    'request_body': RefreshTokenSerializer,
-    'response': None
+    "parameters": None,
+    "request_body": RefreshTokenSerializer,
+    "response": None,
 }
 
 forgot_password_swagger = {
-    'parameters': None,
-    'request_body': ForgotPasswordSerializer,
-    'response': None
+    "parameters": None,
+    "request_body": ForgotPasswordSerializer,
+    "response": None,
 }
 
 forgot_password_change_swagger = {
-    'parameters': [
-            openapi.Parameter('token', openapi.IN_QUERY, description = "Token that has been sent to email for password change.", type = openapi.TYPE_STRING),
+    "parameters": [
+        openapi.Parameter(
+            "token",
+            openapi.IN_QUERY,
+            description="Token that has been sent to email for password change.",
+            type=openapi.TYPE_STRING,
+        ),
     ],
-    'request_body': ForgotPasswordChangeSerializer,
-    'response': None
+    "request_body": ForgotPasswordChangeSerializer,
+    "response": None,
 }

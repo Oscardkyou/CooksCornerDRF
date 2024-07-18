@@ -4,15 +4,19 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('userprofile', '0002_initial'),
+        ("userprofile", "0002_initial"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='userprofile',
-            name='profile_picture',
-            field=models.ImageField(blank=True, max_length=500, null=True, upload_to='cookscorner/user_profile'),
+            model_name="userprofile",
+            name="profile_picture",
+            field=models.ImageField(
+                blank=True,
+                max_length=500,
+                null=True,
+                upload_to="cookscorner/user_profile",
+            ),
         ),
     ]
