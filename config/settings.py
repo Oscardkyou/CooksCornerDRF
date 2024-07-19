@@ -30,12 +30,7 @@ SECRET_KEY = config("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG", cast=bool)
 
-ALLOWED_HOSTS = [
-    "127.0.0.1",
-    "localhost",
-    "159.89.48.104",
-    "marina-backender.org.kg",
-]
+ALLOWED_HOSTS = ["*"]
 
 
 
@@ -61,10 +56,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "utils.middleware.CorsMiddleware",
+    'corsheaders.middleware.CorsMiddleware',
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -72,20 +66,8 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-CCORS_ALLOWED_ORIGINS = [
-    "http://localhost:8000",
-    "http://127.0.0.1:9000",
-    "http://159.89.48.104",
-    "http://marina-backender.org.kg",
-    "https://marina-backender.org.kg",
-]
-
-CSRF_TRUSTED_ORIGINS = [
-    "https://marina-backender.org.kg",
-]
-
-
-CORS_ALLOW_CREDENTIALS = True
+CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOW_HEADERS = "*"
 
 ROOT_URLCONF = "config.urls"
 
