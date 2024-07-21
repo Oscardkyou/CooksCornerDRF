@@ -6,43 +6,116 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Ingredient',
+            name="Ingredient",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('ingredient_name', models.CharField(max_length=50, unique=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("ingredient_name", models.CharField(max_length=50, unique=True)),
             ],
         ),
         migrations.CreateModel(
-            name='Recipe',
+            name="Recipe",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=100)),
-                ('description', models.TextField()),
-                ('difficulty', models.CharField(choices=[('Easy', 'Easy'), ('Medium', 'Medium'), ('Hard', 'Hard')], default='Medium', max_length=10)),
-                ('meal_picture', models.ImageField(max_length=500, upload_to='cookscorner/recipe_images')),
-                ('preparation_time', models.PositiveIntegerField(default=30)),
-                ('category', models.CharField(choices=[('Breakfast', 'Breakfast'), ('Lunch', 'Lunch'), ('Dinner', 'Dinner')], default='Lunch', max_length=10)),
-                ('slug', autoslug.fields.AutoSlugField(always_update=True, editable=False, populate_from='name', unique=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=100)),
+                ("description", models.TextField()),
+                (
+                    "difficulty",
+                    models.CharField(
+                        choices=[
+                            ("Easy", "Easy"),
+                            ("Medium", "Medium"),
+                            ("Hard", "Hard"),
+                        ],
+                        default="Medium",
+                        max_length=10,
+                    ),
+                ),
+                (
+                    "meal_picture",
+                    models.ImageField(
+                        max_length=500, upload_to="cookscorner/recipe_images"
+                    ),
+                ),
+                ("preparation_time", models.PositiveIntegerField(default=30)),
+                (
+                    "category",
+                    models.CharField(
+                        choices=[
+                            ("Breakfast", "Breakfast"),
+                            ("Lunch", "Lunch"),
+                            ("Dinner", "Dinner"),
+                        ],
+                        default="Lunch",
+                        max_length=10,
+                    ),
+                ),
+                (
+                    "slug",
+                    autoslug.fields.AutoSlugField(
+                        always_update=True,
+                        editable=False,
+                        populate_from="name",
+                        unique=True,
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
             ],
         ),
         migrations.CreateModel(
-            name='RecipeIngredients',
+            name="RecipeIngredients",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('amount', models.CharField(max_length=40)),
-                ('unit', models.CharField(max_length=40)),
-                ('ingredient', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='recipe', to='receipts.ingredient', verbose_name='ingredient')),
-                ('recipe', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='ingredients', to='receipts.recipe', verbose_name='recipe')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("amount", models.CharField(max_length=40)),
+                ("unit", models.CharField(max_length=40)),
+                (
+                    "ingredient",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="recipe",
+                        to="receipts.ingredient",
+                        verbose_name="ingredient",
+                    ),
+                ),
+                (
+                    "recipe",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="ingredients",
+                        to="receipts.recipe",
+                        verbose_name="recipe",
+                    ),
+                ),
             ],
         ),
     ]

@@ -1,14 +1,13 @@
 import jwt
-
 from decouple import config
 from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import Response, APIView
 from rest_framework_simplejwt.views import TokenRefreshView
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-
 
 from .serializers import SignupSerializer, ChangePasswordSerializer
 from .models import User, ConfirmationCode
@@ -28,7 +27,24 @@ from .swagger import (
 )
 
 from userprofile.models import UserProfile
-# Create your views here.
+
+
+def handle_user_verification(user, token):
+    if user.is_verified:
+        raise ValidationError("User is already verified.")
+    user_code = ConfirmationCode.objects.get(user=user)
+    if token != user_code.code:
+        raise ValidationError("Invalid or expired activation token.")
+    user.is_verified = True
+    user.save()
+
+
+def create_user_profile(user, username):
+    try:
+        UserProfile.objects.create(user=user, username=username)
+    except Exception as e:
+        user.delete()
+        raise ValidationError("Invalid username or profile could not be created.")
 
 
 class SignupAPIView(APIView):
@@ -37,13 +53,7 @@ class SignupAPIView(APIView):
 
     @swagger_auto_schema(
         tags=["Registration"],
-        operation_description="Этот эндпоинт предоставляет "
-        "возможность пользователю "
-        "обновить токен доступа (Access Token) "
-        "с помощью токена обновления (Refresh Token). "
-        "Токен обновления позволяет пользователям "
-        "продлить срок действия своего Access Token без "
-        "необходимости повторной аутентификации.",
+        operation_description="Register a new user and send a verification email.",
         request_body=signup_swagger["request_body"],
         responses={
             201: signup_swagger["response"],
@@ -51,26 +61,16 @@ class SignupAPIView(APIView):
         },
     )
     def post(self, request, *args, **kwargs):
-        data = request.data.copy()
-        url = data.pop("url", config("EMAIL_LINK"))
-        try:
-            username = data.get("username")
-        except Exception:
-            return Response(
-                {"Message": "Invalid username."}, status=status.HTTP_400_BAD_REQUEST
-            )
-        serializer = SignupSerializer(data=data)
+        serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        user = User.objects.get(email=serializer.validated_data["email"])
+        user = serializer.save()
         try:
-            UserProfile.objects.create(user=user, username=username)
-        except Exception as e:
-            user.delete()
-            return Response(
-                {"Message": "Invalid username."}, status=status.HTTP_400_BAD_REQUEST
-            )
-        create_token_and_send_to_email(user=user, query="verify-account", url=url)
+            create_user_profile(user, request.data.get("username"))
+        except ValidationError as e:
+            return Response({"Message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        create_token_and_send_to_email(
+            user=user, query="verify-account", url=config("EMAIL_LINK")
+        )
         tokens = get_tokens_for_user(user)
         return Response(tokens, status=status.HTTP_201_CREATED)
 
@@ -78,15 +78,12 @@ class SignupAPIView(APIView):
 class VerifyEmailAPIView(APIView):
     @swagger_auto_schema(
         tags=["Registration"],
-        operation_description="Этот эндпоинт предоставляет "
-        "возможность пользователю "
-        "верифицироваться "
-        "с помощью отправленного на почту токена.",
+        operation_description="Verify user's email using the token sent to their email.",
         manual_parameters=[
             openapi.Parameter(
                 "Token",
                 in_=openapi.IN_QUERY,
-                description="Уникальный токен для верификации почты.",
+                description="Unique token for email verification.",
                 type=openapi.TYPE_STRING,
             )
         ],
@@ -99,30 +96,15 @@ class VerifyEmailAPIView(APIView):
         token = request.GET.get("token")
         try:
             user = get_user_by_token(token)
+            handle_user_verification(user, token)
         except jwt.exceptions.DecodeError:
             return Response(
                 {"Error": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST
             )
-        except jwt.ExpiredSignatureError:
-            return Response(
-                {"Error": "Activation token expired"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if user.is_verified:
-            return Response(
-                {"Message": "User is already verified"}, status=status.HTTP_200_OK
-            )
-        user_code = ConfirmationCode.objects.get(user=user)
-        if token != user_code.code:
-            return Response(
-                {"Error": "Activation token expired"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        user.is_verified = True
-        user.save()
+        except ValidationError as e:
+            return Response({"Error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(
-            {"Message": "User is successfuly verified"}, status=status.HTTP_200_OK
+            {"Message": "User successfully verified"}, status=status.HTTP_200_OK
         )
 
 
@@ -131,13 +113,10 @@ class SendVerifyEmailAPIView(APIView):
 
     @swagger_auto_schema(
         tags=["Registration"],
-        operation_description="Этот эндпоинт предоставляет "
-        "возможность пользователю "
-        "переотправить токен для "
-        "верификации почты. ",
+        operation_description="Resend the verification token to the user's email.",
         request_body=resend_swagger["request_body"],
         responses={
-            200: "The verification email has been sent. ",
+            200: "The verification email has been sent.",
             400: "User is already verified.",
         },
     )
@@ -148,9 +127,9 @@ class SendVerifyEmailAPIView(APIView):
                 {"Message": "User is already verified."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        data = request.data.copy()
-        url = data.pop("url", config("EMAIL_LINK"))
-        create_token_and_send_to_email(user=user, query="verify-account", url=url)
+        create_token_and_send_to_email(
+            user=user, query="verify-account", url=config("EMAIL_LINK")
+        )
         return Response(
             {"Message": "The verification email has been sent."},
             status=status.HTTP_200_OK,
@@ -162,30 +141,25 @@ class LoginAPIView(APIView):
 
     @swagger_auto_schema(
         tags=["Authorization"],
-        operation_description="Этот эндпоинт предоставляет "
-        "возможность пользователю "
-        "авторизоваться с помощью логина и пароля."
-        "Возвращает токен доступа (Access Token) "
-        "и токен обновления (Refresh Token). ",
+        operation_description="Authenticate user and provide them with access and refresh tokens.",
         request_body=login_swagger["request_body"],
         responses={
             200: login_swagger["response"],
-            404: "User is not found.",
-            400: "Wrong password!",
+            404: "User not found.",
+            400: "Incorrect password.",
         },
     )
     def post(self, request, *args, **kwargs):
-        data = {"email": request.data["email"], "password": request.data["password"]}
-        email = data["email"]
-        password = data["password"]
+        email = request.data.get("email")
+        password = request.data.get("password")
         user = User.objects.filter(email=email).first()
-        if user is None:
+        if not user:
             return Response(
-                {"Error": "No user with this email."}, status.HTTP_404_NOT_FOUND
+                {"Error": "User not found."}, status=status.HTTP_404_NOT_FOUND
             )
         if not user.check_password(password):
             return Response(
-                {"Error": "Wrong password!"}, status=status.HTTP_400_BAD_REQUEST
+                {"Error": "Incorrect password."}, status=status.HTTP_400_BAD_REQUEST
             )
         tokens = get_tokens_for_user(user)
         return Response(tokens, status=status.HTTP_200_OK)
@@ -194,13 +168,7 @@ class LoginAPIView(APIView):
 class TokenRefreshView(TokenRefreshView):
     @swagger_auto_schema(
         tags=["Authorization"],
-        operation_description="Этот эндпоинт предоставляет "
-        "возможность пользователю "
-        "обновить токен доступа (Access Token) "
-        "с помощью токена обновления (Refresh Token). "
-        "Токен обновления позволяет пользователям "
-        "продлить срок действия своего Access Token без "
-        "необходимости повторной аутентификации.",
+        operation_description="Refresh the access token using the refresh token.",
     )
     def post(self, *args, **kwargs):
         return super().post(*args, **kwargs)
@@ -211,10 +179,7 @@ class LogoutAPIView(APIView):
 
     @swagger_auto_schema(
         tags=["Authorization"],
-        operation_description="Этот эндпоинт предоставляет "
-        "возможность пользователю "
-        "разлогиниться из приложения "
-        "с помощью токена обновления (Refresh Token). ",
+        operation_description="Log out user by invalidating their refresh token.",
         request_body=logout_swagger["request_body"],
         responses={
             200: "Successfully logged out.",
@@ -222,12 +187,11 @@ class LogoutAPIView(APIView):
         },
     )
     def post(self, request, *args, **kwargs):
-        refresh_token = request.data["refresh"]
+        refresh_token = request.data.get("refresh")
         try:
             destroy_token(refresh_token)
             return Response(
-                {"Message": "You have successfully logged out."},
-                status=status.HTTP_200_OK,
+                {"Message": "Successfully logged out."}, status=status.HTTP_200_OK
             )
         except Exception:
             return Response(
@@ -240,20 +204,17 @@ class DeleteUserAPIView(APIView):
 
     @swagger_auto_schema(
         tags=["Authorization"],
-        operation_description="Этот эндпоинт предоставляет "
-        "возможность пользователю "
-        "удалить собственный аккаунт. ",
+        operation_description="Delete the user's account.",
         request_body=logout_swagger["request_body"],
         responses={
-            200: "User is successfully deleted.",
+            200: "User successfully deleted.",
             400: "Invalid token.",
         },
     )
     def delete(self, request, *args, **kwargs):
-        refresh_token = request.data["refresh"]
         user = request.user
         try:
-            destroy_token(refresh_token)
+            destroy_token(request.data.get("refresh"))
         except Exception:
             return Response(
                 {"Error": "Can't delete the user."}, status=status.HTTP_400_BAD_REQUEST
@@ -268,30 +229,27 @@ class DeleteUserAPIView(APIView):
 class ForgotPasswordAPIView(APIView):
     @swagger_auto_schema(
         tags=["Authorization"],
-        operation_description="Этот эндпоинт предоставляет "
-        "возможность пользователю "
-        "получить токен для сброса пароля. ",
+        operation_description="Send a token to user's email to allow them to reset their password.",
         request_body=forgot_password_swagger["request_body"],
         responses={
-            200: "The verification email has been sent.",
+            200: "Verification email sent.",
             400: "Invalid data.",
         },
     )
     def post(self, request, *args, **kwargs):
-        email = request.data["email"]
+        email = request.data.get("email")
         try:
             user = User.objects.get(email=email)
-        except Exception:
-            return Response(
-                {"Error": "User is not found."}, status=status.HTTP_404_NOT_FOUND
+            create_token_and_send_to_email(
+                user=user, query="change-password", url=config("EMAIL_LINK_PASSWORD")
             )
-        data = request.data.copy()
-        url = data.pop("url", config("EMAIL_LINK_PASSWORD"))
-        create_token_and_send_to_email(user=user, query="change-password", url=url)
-        return Response(
-            {"Message": "The verification email has been sent."},
-            status=status.HTTP_200_OK,
-        )
+            return Response(
+                {"Message": "Verification email sent."}, status=status.HTTP_200_OK
+            )
+        except User.DoesNotExist:
+            return Response(
+                {"Error": "User not found."}, status=status.HTTP_404_NOT_FOUND
+            )
 
 
 class ChangePasswordAPIView(APIView):
@@ -299,36 +257,34 @@ class ChangePasswordAPIView(APIView):
 
     @swagger_auto_schema(
         tags=["Authorization"],
-        operation_description="Этот эндпоинт предоставляет "
-        "возможность авторизованному пользователю "
-        "изменить пароль аккаунта. ",
+        operation_description="Allow authenticated user to change their password.",
         request_body=ChangePasswordSerializer,
         responses={
-            200: "Password has been successfully changed.",
+            200: "Password successfully changed.",
             400: "Invalid data.",
         },
     )
     def post(self, request, *args, **kwargs):
-        user = request.user
-        serializer = ChangePasswordSerializer(data=request.data, context={"user": user})
+        serializer = ChangePasswordSerializer(
+            data=request.data, context={"user": request.user}
+        )
         serializer.is_valid(raise_exception=True)
+        user = request.user
         user.set_password(serializer.validated_data["new_password"])
         user.save()
         return Response(
-            {"Message": "Password is changed successfully."}, status=status.HTTP_200_OK
+            {"Message": "Password successfully changed."}, status=status.HTTP_200_OK
         )
 
 
 class ForgotPasswordChangeAPIView(APIView):
     @swagger_auto_schema(
         tags=["Authorization"],
-        operation_description="Этот эндпоинт предоставляет "
-        "возможность пользователю "
-        "изменить пароль на новый. ",
+        operation_description="Allow user to change their password using the reset token.",
         manual_parameters=forgot_password_change_swagger["parameters"],
         request_body=forgot_password_change_swagger["request_body"],
         responses={
-            200: "Password has been successfully changed.",
+            200: "Password successfully changed.",
             400: "Invalid data.",
         },
     )
@@ -336,29 +292,19 @@ class ForgotPasswordChangeAPIView(APIView):
         token = request.GET.get("token")
         try:
             user = get_user_by_token(token)
-        except jwt.exceptions.DecodeError:
+            new_password = request.data.get("password")
+            confirm_password = request.data.get("password_confirm")
+            if new_password != confirm_password:
+                raise ValidationError("Passwords do not match.")
+            validate_password(new_password, user=user)
+            user.set_password(new_password)
+            user.save()
+            return Response(
+                {"Message": "Password successfully changed."}, status=status.HTTP_200_OK
+            )
+        except jwt.DecodeError:
             return Response(
                 {"Error": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST
             )
-        except jwt.ExpiredSignatureError:
-            return Response(
-                {"Error": "Activation token expired"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        password, password_confirm = (
-            request.data["password"],
-            request.data["password_confirm"],
-        )
-        if password != password_confirm:
-            return Response(
-                {"Error": "Passwords don't match"}, status=status.HTTP_400_BAD_REQUEST
-            )
-        try:
-            validate_password(password)
-        except Exception as e:
-            return Response({"Error": e}, status=status.HTTP_400_BAD_REQUEST)
-        user.set_password(password)
-        user.save()
-        return Response(
-            {"Message": "Password is changed successfully."}, status=status.HTTP_200_OK
-        )
+        except ValidationError as e:
+            return Response({"Error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
